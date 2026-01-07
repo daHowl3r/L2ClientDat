@@ -11,7 +11,7 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<javafx.version>21.0.5</javafx.version>
-		<maven.compiler.release>24</maven.compiler.release>
+		<maven.compiler.release>21</maven.compiler.release>
 		<maven.build.timestamp.format>yyyy-MM-dd HH:mm:ss z</maven.build.timestamp.format>
 	</properties>
 
@@ -40,9 +40,13 @@
 				<artifactId>maven-jar-plugin</artifactId>
 				<version>3.3.0</version>
 				<configuration>
-					<outputDirectory>${project.basedir}/build/dist/libs</outputDirectory>
+					<outputDirectory>${project.basedir}/build/dist</outputDirectory>
 					<finalName>L2ClientDat</finalName>
 					<archive>
+						<manifest>
+							<addClasspath>true</addClasspath>
+							<classpathPrefix>libs/</classpathPrefix>
+						</manifest>
 						<manifestEntries>
 							<Build-By>${user.name}</Build-By>
 							<Build-Date>${maven.build.timestamp}</Build-Date>
@@ -51,6 +55,26 @@
 						</manifestEntries>
 					</archive>
 				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<version>3.9.0</version>
+				<executions>
+					<execution>
+						<id>copy-dependencies</id>
+						<phase>package</phase>
+						<goals>
+							<goal>copy-dependencies</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${project.basedir}/build/dist/libs</outputDirectory>
+							<overWriteReleases>false</overWriteReleases>
+							<overWriteSnapshots>false</overWriteSnapshots>
+							<overWriteIfNewer>true</overWriteIfNewer>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
