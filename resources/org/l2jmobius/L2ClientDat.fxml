@@ -11,7 +11,6 @@
 <?import javafx.geometry.Insets?>
 <?import org.l2jmobius.LineNumberingTextArea?>
 <?import org.l2jmobius.forms.JPopupTextArea?>
-<?import org.l2jmobius.forms.RichTextEditor?>
 
 <BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.l2jmobius.L2ClientDatController">
 	<top>
@@ -55,7 +54,6 @@
 				<HBox fx:id="editorPane">
 					<children>
 						<LineNumberingTextArea fx:id="lineNumberingTextArea" prefWidth="50.0" />
-						<RichTextEditor fx:id="textPaneMain" />
 					</children>
 				</HBox>
 				<JPopupTextArea fx:id="textPaneLog" />

@@ -62,8 +62,9 @@ import org.l2jmobius.actions.SaveTxt;
 import org.l2jmobius.clientcryptor.crypt.DatCrypter;
 import org.l2jmobius.config.ConfigDebug;
 import org.l2jmobius.config.ConfigWindow;
+import org.fxmisc.flowless.VirtualizedScrollPane;
+import org.l2jmobius.forms.EditorCodeArea;
 import org.l2jmobius.forms.JPopupTextArea;
-import org.l2jmobius.forms.RichTextEditor;
 import org.l2jmobius.util.Util;
 import org.l2jmobius.xml.CryptVersionParser;
 import org.l2jmobius.xml.DescriptorParser;
@@ -83,7 +84,8 @@ public class L2ClientDat extends Application
 	private static JPopupTextArea _textPaneLog;
 	private final ExecutorService _executorService = Executors.newCachedThreadPool();
 	private final ArrayList<Pane> _actionPanels = new ArrayList<>();
-	private RichTextEditor _textPaneMain;
+	private EditorCodeArea _textPaneMain;
+	private VirtualizedScrollPane<EditorCodeArea> _editorScrollPane;
 	private LineNumberingTextArea _lineNumberingTextArea;
 	private ComboBox<String> _jComboBoxChronicle;
 	private ComboBox<String> _jComboBoxEncrypt;
@@ -163,7 +165,7 @@ public class L2ClientDat extends Application
 		setIcons(stage);
 		stage.show();
 		
-		Platform.runLater(() -> syncScrollBars(_textPaneMain, _lineNumberingTextArea));
+		Platform.runLater(() -> syncScrollBars(_editorScrollPane, _lineNumberingTextArea));
 	}
 	
 	@Override
@@ -172,7 +174,7 @@ public class L2ClientDat extends Application
 		_executorService.shutdownNow();
 	}
 	
-	public RichTextEditor getTextPaneMain()
+	public EditorCodeArea getTextPaneMain()
 	{
 		return _textPaneMain;
 	}
@@ -500,9 +502,9 @@ public class L2ClientDat extends Application
 		return new Image(file.toURI().toString());
 	}
 	
-	private void syncScrollBars(RichTextEditor main, TextArea lineNumbers)
+	private void syncScrollBars(VirtualizedScrollPane<EditorCodeArea> main, TextArea lineNumbers)
 	{
-		final ScrollBar mainBar = (ScrollBar) main.getInputArea().lookup(".scroll-bar:vertical");
+		final ScrollBar mainBar = (ScrollBar) main.lookup(".scroll-bar:vertical");
 		final ScrollBar lineBar = (ScrollBar) lineNumbers.lookup(".scroll-bar:vertical");
 		if ((mainBar == null) || (lineBar == null))
 		{
@@ -513,8 +515,12 @@ public class L2ClientDat extends Application
 	
 	private void bindController(L2ClientDatController controller)
 	{
-		_textPaneMain = controller.getTextPaneMain();
 		_lineNumberingTextArea = controller.getLineNumberingTextArea();
+		_textPaneMain = new EditorCodeArea();
+		_editorScrollPane = new VirtualizedScrollPane<>(_textPaneMain);
+		final HBox editorPane = controller.getEditorPane();
+		editorPane.getChildren().setAll(_lineNumberingTextArea, _editorScrollPane);
+		HBox.setHgrow(_editorScrollPane, Priority.ALWAYS);
 		_jComboBoxChronicle = controller.getChronicleComboBox();
 		_jComboBoxEncrypt = controller.getEncryptComboBox();
 		_jComboBoxFormatter = controller.getFormatterComboBox();
@@ -552,8 +558,9 @@ public class L2ClientDat extends Application
 		_progressBar.setProgress(0.0);
 		
 		final Font font = Font.font(new Label().getFont().getName(), FontWeight.BOLD, 13.0);
-		_textPaneMain.setEditorStyle("-fx-control-inner-background: #293134; -fx-text-fill: white;");
-		_textPaneMain.setFont(font);
+		_textPaneMain.setStyle(String.format("-fx-background-color: #293134; -fx-text-fill: white; -fx-font-family: '%s'; -fx-font-size: %.1fpx; -fx-font-weight: bold;",
+				font.getFamily(),
+				font.getSize()));
 		_textPaneMain.textProperty().addListener((observable, oldValue, newValue) -> _lineNumberingTextArea.updateText(newValue));
 		_lineNumberingTextArea.updateText(_textPaneMain.getText());
 		
@@ -562,8 +569,6 @@ public class L2ClientDat extends Application
 		_lineNumberingTextArea.setEditable(false);
 		_lineNumberingTextArea.setFocusTraversable(false);
 		_lineNumberingTextArea.setMouseTransparent(true);
-		
-		HBox.setHgrow(_textPaneMain, Priority.ALWAYS);
 		
 		_textPaneLog.setStyle("-fx-control-inner-background: #293134; -fx-text-fill: cyan;");
 		_textPaneLog.setEditable(false);
