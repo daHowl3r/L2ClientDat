@@ -40,6 +40,11 @@
 
 	<build>
 		<sourceDirectory>${project.basedir}/java</sourceDirectory>
+		<resources>
+			<resource>
+				<directory>${project.basedir}/resources</directory>
+			</resource>
+		</resources>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
