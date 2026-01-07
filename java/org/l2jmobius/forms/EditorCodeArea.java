@@ -37,7 +37,6 @@ public class EditorCodeArea extends CodeArea
 	{
 		textProperty().addListener((observable, oldValue, newValue) -> setStyleSpans(0, buildHighlighting(newValue)));
 	}
-
 	/**
 	 * Clears the current editor text and undo history.
 	 */
@@ -54,7 +53,7 @@ public class EditorCodeArea extends CodeArea
 	{
 		getUndoManager().forgetHistory();
 	}
-
+  
 	private StyleSpans<java.util.Collection<String>> buildHighlighting(String text)
 	{
 		final String value = text == null ? "" : text;
@@ -79,4 +78,5 @@ public class EditorCodeArea extends CodeArea
 		}
 		return spansBuilder.create();
 	}
+  
 }
