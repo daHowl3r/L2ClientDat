@@ -16,19 +16,7 @@
  */
 package org.l2jmobius;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.EventQueue;
-import java.awt.Font;
-import java.awt.Image;
-import java.awt.SplashScreen;
 import java.awt.Toolkit;
-import java.awt.event.ActionEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -40,28 +28,32 @@ import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
-import javax.swing.DefaultComboBoxModel;
-import javax.swing.ImageIcon;
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JFileChooser;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JProgressBar;
-import javax.swing.JScrollPane;
-import javax.swing.JSplitPane;
-import javax.swing.JTextArea;
-import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-import javax.swing.filechooser.FileNameExtensionFilter;
-import javax.swing.text.AbstractDocument;
-import javax.swing.text.AttributeSet;
-import javax.swing.text.BadLocationException;
-import javax.swing.text.DocumentFilter;
-
+import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.event.ActionEvent;
+import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
+import javafx.scene.Cursor;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
+import javafx.scene.control.ScrollBar;
+import javafx.scene.control.SplitPane;
+import javafx.scene.control.TextArea;
+import javafx.scene.image.Image;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.stage.DirectoryChooser;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 import org.l2jmobius.actions.ActionTask;
 import org.l2jmobius.actions.MassRecryptor;
 import org.l2jmobius.actions.MassTxtPacker;
@@ -77,7 +69,7 @@ import org.l2jmobius.util.Util;
 import org.l2jmobius.xml.CryptVersionParser;
 import org.l2jmobius.xml.DescriptorParser;
 
-public class L2ClientDat extends JFrame
+public class L2ClientDat extends Application
 {
 	private static final Logger LOGGER = Logger.getLogger(L2ClientDat.class.getName());
 	
@@ -99,30 +91,28 @@ public class L2ClientDat extends JFrame
 	
 	public static boolean DEV_MODE = false;
 	
-	private static SplashScreen _splashScreen = null;
-	private static JTextArea _textPaneLog;
+	private static TextArea _textPaneLog;
 	private final ExecutorService _executorService = Executors.newCachedThreadPool();
-	private final JPopupTextArea _textPaneMain;
-	private final LineNumberingTextArea _lineNumberingTextArea;
-	private final JComboBox<String> _jComboBoxChronicle;
-	private final JComboBox<String> _jComboBoxEncrypt;
-	private final JComboBox<String> _jComboBoxFormatter;
-	private final ArrayList<JPanel> _actionPanels = new ArrayList<>();
-	private final JButton _saveTxtButton;
-	private final JButton _saveDatButton;
-	private final JButton _abortTaskButton;
-	private final JProgressBar _progressBar;
+	private final JPopupTextArea _textPaneMain = new JPopupTextArea();
+	private final LineNumberingTextArea _lineNumberingTextArea = new LineNumberingTextArea();
+	private final ComboBox<String> _jComboBoxChronicle = new ComboBox<>();
+	private final ComboBox<String> _jComboBoxEncrypt = new ComboBox<>();
+	private final ComboBox<String> _jComboBoxFormatter = new ComboBox<>();
+	private final ArrayList<Pane> _actionPanels = new ArrayList<>();
+	private final Button _saveTxtButton = new Button();
+	private final Button _saveDatButton = new Button();
+	private final Button _abortTaskButton = new Button();
+	private final ProgressBar _progressBar = new ProgressBar(0);
+	private Scene _scene;
 	
 	private File _currentFileWindow = null;
 	private ActionTask _progressTask = null;
 	
 	public static void main(String[] args)
 	{
-		// Create log folder.
 		final File logFolder = new File(".", "log");
 		logFolder.mkdir();
 		
-		// Create input stream for log file -- or store file data into memory.
 		try (InputStream is = new FileInputStream(new File("./config/log.cfg")))
 		{
 			LogManager.getLogManager().readConfiguration(is);
@@ -132,7 +122,6 @@ public class L2ClientDat extends JFrame
 			LOGGER.log(Level.SEVERE, null, e);
 		}
 		
-		_splashScreen = SplashScreen.getSplashScreen();
 		DEV_MODE = Util.contains((Object[]) args, (Object) "-dev");
 		
 		ConfigWindow.load();
@@ -141,177 +130,135 @@ public class L2ClientDat extends JFrame
 		CryptVersionParser.getInstance().parse();
 		DescriptorParser.getInstance().parse();
 		
-		try
-		{
-			for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels())
-			{
-				if ("Nimbus".equals(info.getName()))
-				{
-					UIManager.setLookAndFeel(info.getClassName());
-					break;
-				}
-			}
-		}
-		catch (Exception ex)
-		{
-			LOGGER.log(Level.SEVERE, null, ex);
-		}
-		
-		EventQueue.invokeLater(L2ClientDat::new);
+		launch(args);
 	}
 	
-	public L2ClientDat()
+	@Override
+	public void start(Stage stage)
 	{
-		setTitle("L2ClientDat Editor - L2jMobius Edition");
-		
-		setMinimumSize(new Dimension(1000, 600));
-		setSize(new Dimension(ConfigWindow.WINDOW_WIDTH, ConfigWindow.WINDOW_HEIGHT));
-		getContentPane().setLayout(new BorderLayout());
-		setDefaultCloseOperation(3);
-		setLocationRelativeTo(null);
-		addWindowListener(new WindowAdapter()
+		stage.setTitle("L2ClientDat Editor - L2jMobius Edition");
+		stage.setMinWidth(1000);
+		stage.setMinHeight(600);
+		stage.setWidth(ConfigWindow.WINDOW_WIDTH);
+		stage.setHeight(ConfigWindow.WINDOW_HEIGHT);
+		stage.setOnCloseRequest(event ->
 		{
-			@Override
-			public void windowClosing(WindowEvent evt)
-			{
-				ConfigWindow.save("WINDOW_HEIGHT", String.valueOf(getHeight()));
-				ConfigWindow.save("WINDOW_WIDTH", String.valueOf(getWidth()));
-				System.exit(0);
-			}
+			ConfigWindow.save("WINDOW_HEIGHT", String.valueOf(stage.getHeight()));
+			ConfigWindow.save("WINDOW_WIDTH", String.valueOf(stage.getWidth()));
+			_executorService.shutdownNow();
+			Platform.exit();
 		});
 		
-		final JPanel buttonPane = new JPanel();
-		buttonPane.setLayout(new BorderLayout());
+		final VBox buttonPane = new VBox(8.0);
+		buttonPane.setPadding(new Insets(8.0));
 		
-		final JPanel buttonPane2 = new JPanel();
-		final JLabel structureLabel = new JLabel(DAT_STRUCTURE_STR);
-		buttonPane2.add(structureLabel);
-		_jComboBoxChronicle = new JComboBox<>();
+		final HBox buttonPane2 = new HBox(8.0);
+		final Label structureLabel = new Label(DAT_STRUCTURE_STR);
+		buttonPane2.getChildren().add(structureLabel);
 		final String[] chronicles = DescriptorParser.getInstance().getChronicleNames().toArray(new String[0]);
-		_jComboBoxChronicle.setModel(new DefaultComboBoxModel<>(chronicles));
-		_jComboBoxChronicle.setSelectedItem(Util.contains((Object[]) chronicles, (Object) ConfigWindow.CURRENT_CHRONICLE) ? ConfigWindow.CURRENT_CHRONICLE : chronicles[chronicles.length - 1]);
-		_jComboBoxChronicle.addActionListener(e -> saveComboBox(_jComboBoxChronicle, "CURRENT_CHRONICLE"));
-		buttonPane2.add(_jComboBoxChronicle);
+		_jComboBoxChronicle.setItems(FXCollections.observableArrayList(chronicles));
+		_jComboBoxChronicle.setValue(Util.contains((Object[]) chronicles, (Object) ConfigWindow.CURRENT_CHRONICLE) ? ConfigWindow.CURRENT_CHRONICLE : chronicles[chronicles.length - 1]);
+		_jComboBoxChronicle.valueProperty().addListener((observable, oldValue, newValue) -> saveComboBox(_jComboBoxChronicle, "CURRENT_CHRONICLE"));
+		buttonPane2.getChildren().add(_jComboBoxChronicle);
 		
-		final JLabel encryptLabel = new JLabel("Encrypt:");
-		buttonPane2.add(encryptLabel);
-		_jComboBoxEncrypt = new JComboBox<>();
-		DefaultComboBoxModel<String> comboBoxModel = new DefaultComboBoxModel<>(CryptVersionParser.getInstance().getEncryptKey().keySet().toArray(new String[0]));
-		comboBoxModel.insertElementAt(SOURCE_ENCRYPT_TYPE_STR, 0);
-		comboBoxModel.setSelectedItem(SOURCE_ENCRYPT_TYPE_STR);
-		_jComboBoxEncrypt.setModel(comboBoxModel);
-		_jComboBoxEncrypt.setSelectedItem(ConfigWindow.CURRENT_ENCRYPT);
-		_jComboBoxEncrypt.addActionListener(e -> saveComboBox(_jComboBoxEncrypt, "CURRENT_ENCRYPT"));
-		buttonPane2.add(_jComboBoxEncrypt);
+		final Label encryptLabel = new Label("Encrypt:");
+		buttonPane2.getChildren().add(encryptLabel);
+		final List<String> encryptChoices = new ArrayList<>(CryptVersionParser.getInstance().getEncryptKey().keySet());
+		encryptChoices.add(0, SOURCE_ENCRYPT_TYPE_STR);
+		_jComboBoxEncrypt.setItems(FXCollections.observableArrayList(encryptChoices));
+		_jComboBoxEncrypt.setValue(ConfigWindow.CURRENT_ENCRYPT);
+		_jComboBoxEncrypt.valueProperty().addListener((observable, oldValue, newValue) -> saveComboBox(_jComboBoxEncrypt, "CURRENT_ENCRYPT"));
+		buttonPane2.getChildren().add(_jComboBoxEncrypt);
 		
-		buttonPane.add(buttonPane2, "First");
+		final Label inputFormatterLabel = new Label("Formatter:");
+		buttonPane2.getChildren().add(inputFormatterLabel);
+		_jComboBoxFormatter.setItems(FXCollections.observableArrayList(ENABLED_STR, DISABLED_STR));
+		_jComboBoxFormatter.setValue(ConfigWindow.CURRENT_FORMATTER);
+		_jComboBoxFormatter.valueProperty().addListener((observable, oldValue, newValue) -> saveComboBox(_jComboBoxFormatter, "CURRENT_FORMATTER"));
+		buttonPane2.getChildren().add(_jComboBoxFormatter);
+		
+		buttonPane.getChildren().add(buttonPane2);
 		_actionPanels.add(buttonPane2);
-		final JLabel inputFormatterLabel = new JLabel("Formatter:");
-		buttonPane2.add(inputFormatterLabel);
-		_jComboBoxFormatter = new JComboBox<>();
-		comboBoxModel = new DefaultComboBoxModel<>(new String[]
-		{
-			"Enabled",
-			"Disabled"
-		});
-		_jComboBoxFormatter.setModel(comboBoxModel);
-		_jComboBoxFormatter.setSelectedItem(ConfigWindow.CURRENT_FORMATTER);
-		_jComboBoxFormatter.addActionListener(e -> saveComboBox(_jComboBoxFormatter, "CURRENT_FORMATTER"));
-		buttonPane2.add(_jComboBoxFormatter);
 		
-		final JPanel buttonPane3 = new JPanel();
-		final JButton open = new JButton();
-		open.setText(OPEN_BTN_STR);
-		open.addActionListener(this::openSelectFileWindow);
-		buttonPane3.add(open);
-		(_saveTxtButton = new JButton()).setText(SAVE_TXT_BTN_STR);
-		_saveTxtButton.addActionListener(this::saveTxtActionPerformed);
-		_saveTxtButton.setEnabled(false);
-		buttonPane3.add(_saveTxtButton);
-		(_saveDatButton = new JButton()).setText(SAVE_DAT_BTN_STR);
-		_saveDatButton.addActionListener(this::saveDatActionPerformed);
-		_saveDatButton.setEnabled(false);
-		buttonPane3.add(_saveDatButton);
-		final JButton massTxtUnpack = new JButton();
-		massTxtUnpack.setText(DECRYPT_ALL_BTN_STR);
-		massTxtUnpack.addActionListener(this::massTxtUnpackActionPerformed);
-		buttonPane3.add(massTxtUnpack);
-		final JButton massTxtPack = new JButton();
-		massTxtPack.setText(ENCRYPT_ALL_BTN_STR);
-		massTxtPack.addActionListener(this::massTxtPackActionPerformed);
-		buttonPane3.add(massTxtPack);
-		final JButton massRecrypt = new JButton();
-		massRecrypt.setText(PATCH_ALL_BTN_STR);
-		massRecrypt.addActionListener(this::massRecryptActionPerformed);
-		buttonPane3.add(massRecrypt);
-		buttonPane.add(buttonPane3);
+		final HBox buttonPane3 = new HBox(8.0);
+		final Button open = new Button(OPEN_BTN_STR);
+		open.setOnAction(this::openSelectFileWindow);
+		buttonPane3.getChildren().add(open);
+		_saveTxtButton.setText(SAVE_TXT_BTN_STR);
+		_saveTxtButton.setOnAction(this::saveTxtActionPerformed);
+		_saveTxtButton.setDisable(true);
+		buttonPane3.getChildren().add(_saveTxtButton);
+		_saveDatButton.setText(SAVE_DAT_BTN_STR);
+		_saveDatButton.setOnAction(this::saveDatActionPerformed);
+		_saveDatButton.setDisable(true);
+		buttonPane3.getChildren().add(_saveDatButton);
+		final Button massTxtUnpack = new Button(DECRYPT_ALL_BTN_STR);
+		massTxtUnpack.setOnAction(this::massTxtUnpackActionPerformed);
+		buttonPane3.getChildren().add(massTxtUnpack);
+		final Button massTxtPack = new Button(ENCRYPT_ALL_BTN_STR);
+		massTxtPack.setOnAction(this::massTxtPackActionPerformed);
+		buttonPane3.getChildren().add(massTxtPack);
+		final Button massRecrypt = new Button(PATCH_ALL_BTN_STR);
+		massRecrypt.setOnAction(this::massRecryptActionPerformed);
+		buttonPane3.getChildren().add(massRecrypt);
+		buttonPane.getChildren().add(buttonPane3);
 		_actionPanels.add(buttonPane3);
 		
-		final JPanel progressPane = new JPanel();
-		(_progressBar = new JProgressBar(0, 100)).setPreferredSize(new Dimension(300, 25));
-		_progressBar.setValue(0);
-		_progressBar.setStringPainted(true);
-		progressPane.add(_progressBar);
+		final HBox progressPane = new HBox(8.0);
+		_progressBar.setPrefWidth(300.0);
+		_progressBar.setProgress(0.0);
+		progressPane.getChildren().add(_progressBar);
 		
-		(_abortTaskButton = new JButton()).setText(ABORT_BTN_STR);
-		_abortTaskButton.addActionListener(this::abortActionPerformed);
-		_abortTaskButton.setEnabled(false);
-		progressPane.add(_abortTaskButton);
-		buttonPane.add(progressPane, "Last");
-		final JSplitPane jsp = new JSplitPane(0, false);
-		jsp.setResizeWeight(0.7);
-		jsp.setOneTouchExpandable(true);
-		final Font font = new Font(new JLabel().getFont().getName(), 1, 13);
-		(_textPaneMain = new JPopupTextArea()).setBackground(new Color(41, 49, 52));
-		_textPaneMain.setForeground(Color.WHITE);
+		_abortTaskButton.setText(ABORT_BTN_STR);
+		_abortTaskButton.setOnAction(this::abortActionPerformed);
+		_abortTaskButton.setDisable(true);
+		progressPane.getChildren().add(_abortTaskButton);
+		buttonPane.getChildren().add(progressPane);
+		_actionPanels.add(progressPane);
+		
+		final SplitPane splitPane = new SplitPane();
+		splitPane.setOrientation(Orientation.VERTICAL);
+		splitPane.setDividerPositions(0.7);
+		final Font font = Font.font(new Label().getFont().getName(), FontWeight.BOLD, 13.0);
+		_textPaneMain.setStyle("-fx-control-inner-background: #293134; -fx-text-fill: white;");
 		_textPaneMain.setFont(font);
-		((AbstractDocument) _textPaneMain.getDocument()).setDocumentFilter(new DocumentFilter()
-		{
-			@Override
-			public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs) throws BadLocationException
-			{
-				final String replacedText = text.replace("\r\n", "\n");
-				super.replace(fb, offset, length, replacedText, attrs);
-			}
-		});
+		_textPaneMain.textProperty().addListener((observable, oldValue, newValue) -> _lineNumberingTextArea.updateText(newValue));
+		_lineNumberingTextArea.updateText(_textPaneMain.getText());
 		
-		(_lineNumberingTextArea = new LineNumberingTextArea(_textPaneMain)).setBackground(Color.DARK_GRAY);
-		_lineNumberingTextArea.setForeground(Color.LIGHT_GRAY);
-		_lineNumberingTextArea.setFont(font.deriveFont(12.0f));
+		_lineNumberingTextArea.setFont(Font.font(font.getName(), FontWeight.NORMAL, 12.0));
+		_lineNumberingTextArea.setStyle("-fx-control-inner-background: #4d4d4d; -fx-text-fill: #d3d3d3;");
 		_lineNumberingTextArea.setEditable(false);
-		_textPaneMain.getDocument().addDocumentListener(_lineNumberingTextArea);
+		_lineNumberingTextArea.setFocusTraversable(false);
+		_lineNumberingTextArea.setMouseTransparent(true);
+		_lineNumberingTextArea.setPrefWidth(50.0);
 		
-		final JScrollPane jScrollPane1 = new JScrollPane(22, 30);
-		jScrollPane1.setAutoscrolls(true);
-		jScrollPane1.setViewportView(_textPaneMain);
-		jScrollPane1.setRowHeaderView(_lineNumberingTextArea);
-		jsp.setTopComponent(jScrollPane1);
-		(_textPaneLog = new JPopupTextArea()).setBackground(new Color(41, 49, 52));
-		_textPaneLog.setForeground(Color.CYAN);
+		final HBox editorPane = new HBox();
+		HBox.setHgrow(_textPaneMain, Priority.ALWAYS);
+		editorPane.getChildren().addAll(_lineNumberingTextArea, _textPaneMain);
+		
+		_textPaneLog = new JPopupTextArea();
+		_textPaneLog.setStyle("-fx-control-inner-background: #293134; -fx-text-fill: cyan;");
 		_textPaneLog.setEditable(false);
 		
-		final JScrollPane jScrollPane2 = new JScrollPane();
-		jScrollPane2.setViewportView(_textPaneLog);
-		jScrollPane2.setAutoscrolls(true);
-		jsp.setBottomComponent(jScrollPane2);
-		getContentPane().add(buttonPane, "First");
-		getContentPane().add(jsp);
+		splitPane.getItems().addAll(editorPane, _textPaneLog);
 		
-		// Set icons.
-		final List<Image> icons = new ArrayList<>();
-		icons.add(new ImageIcon("." + File.separator + "images" + File.separator + "l2jmobius_16x16.png").getImage());
-		icons.add(new ImageIcon("." + File.separator + "images" + File.separator + "l2jmobius_32x32.png").getImage());
-		icons.add(new ImageIcon("." + File.separator + "images" + File.separator + "l2jmobius_64x64.png").getImage());
-		icons.add(new ImageIcon("." + File.separator + "images" + File.separator + "l2jmobius_128x128.png").getImage());
-		setIconImages(icons);
+		final BorderPane root = new BorderPane();
+		root.setTop(buttonPane);
+		root.setCenter(splitPane);
 		
-		pack();
-		if (_splashScreen != null)
-		{
-			_splashScreen.close();
-		}
-		setVisible(true);
-		toFront();
+		_scene = new Scene(root);
+		stage.setScene(_scene);
+		
+		setIcons(stage);
+		stage.show();
+		
+		Platform.runLater(() -> syncScrollBars(_textPaneMain, _lineNumberingTextArea));
+	}
+	
+	@Override
+	public void stop()
+	{
+		_executorService.shutdownNow();
 	}
 	
 	public JPopupTextArea getTextPaneMain()
@@ -326,27 +273,18 @@ public class L2ClientDat extends JFrame
 			LOGGER.info(log);
 		}
 		
-		if (!SwingUtilities.isEventDispatchThread())
+		if (_textPaneLog == null)
 		{
-			SwingUtilities.invokeLater(() -> _textPaneLog.append(log + "\n"));
+			return;
 		}
-		else
-		{
-			_textPaneLog.append(log + "\n");
-		}
+		
+		Platform.runLater(() -> _textPaneLog.appendText(log + System.lineSeparator()));
 	}
 	
 	public void setEditorText(String text)
 	{
 		_lineNumberingTextArea.cleanUp();
-		if (!SwingUtilities.isEventDispatchThread())
-		{
-			SwingUtilities.invokeLater(() -> _textPaneMain.setText(text));
-		}
-		else
-		{
-			_textPaneMain.setText(text);
-		}
+		Platform.runLater(() -> _textPaneMain.setText(text));
 	}
 	
 	private void massTxtPackActionPerformed(ActionEvent evt)
@@ -356,20 +294,20 @@ public class L2ClientDat extends JFrame
 			return;
 		}
 		
-		final JFileChooser fileopen = new JFileChooser();
-		fileopen.setFileSelectionMode(1);
-		fileopen.setAcceptAllFileFilterUsed(false);
-		fileopen.setCurrentDirectory(new File(ConfigWindow.FILE_OPEN_CURRENT_DIRECTORY_PACK));
-		fileopen.setPreferredSize(new Dimension(600, 600));
-		
-		final int ret = fileopen.showDialog(null, SELECT_BTN_STR);
-		if (ret == 0)
+		final DirectoryChooser directoryChooser = new DirectoryChooser();
+		final File packDirectory = getExistingDirectory(ConfigWindow.FILE_OPEN_CURRENT_DIRECTORY_PACK);
+		if (packDirectory != null)
 		{
-			_currentFileWindow = fileopen.getSelectedFile();
+			directoryChooser.setInitialDirectory(packDirectory);
+		}
+		final File selectedDirectory = directoryChooser.showDialog(_scene.getWindow());
+		if (selectedDirectory != null)
+		{
+			_currentFileWindow = selectedDirectory;
 			ConfigWindow.save("FILE_OPEN_CURRENT_DIRECTORY_PACK", _currentFileWindow.getPath());
 			addLogConsole("---------------------------------------", true);
 			addLogConsole("Selected folder: " + _currentFileWindow.getPath(), true);
-			_progressTask = new MassTxtPacker(this, String.valueOf(_jComboBoxChronicle.getSelectedItem()), _currentFileWindow.getPath());
+			_progressTask = new MassTxtPacker(this, String.valueOf(_jComboBoxChronicle.getValue()), _currentFileWindow.getPath());
 			_executorService.execute(_progressTask);
 		}
 	}
@@ -381,20 +319,20 @@ public class L2ClientDat extends JFrame
 			return;
 		}
 		
-		final JFileChooser fileopen = new JFileChooser();
-		fileopen.setFileSelectionMode(1);
-		fileopen.setAcceptAllFileFilterUsed(false);
-		fileopen.setCurrentDirectory(new File(ConfigWindow.FILE_OPEN_CURRENT_DIRECTORY_UNPACK));
-		fileopen.setPreferredSize(new Dimension(600, 600));
-		
-		final int ret = fileopen.showDialog(null, SELECT_BTN_STR);
-		if (ret == 0)
+		final DirectoryChooser directoryChooser = new DirectoryChooser();
+		final File unpackDirectory = getExistingDirectory(ConfigWindow.FILE_OPEN_CURRENT_DIRECTORY_UNPACK);
+		if (unpackDirectory != null)
 		{
-			_currentFileWindow = fileopen.getSelectedFile();
+			directoryChooser.setInitialDirectory(unpackDirectory);
+		}
+		final File selectedDirectory = directoryChooser.showDialog(_scene.getWindow());
+		if (selectedDirectory != null)
+		{
+			_currentFileWindow = selectedDirectory;
 			ConfigWindow.save("FILE_OPEN_CURRENT_DIRECTORY_UNPACK", _currentFileWindow.getPath());
 			addLogConsole("---------------------------------------", true);
 			addLogConsole("selected folder: " + _currentFileWindow.getPath(), true);
-			_progressTask = new MassTxtUnpacker(this, String.valueOf(_jComboBoxChronicle.getSelectedItem()), _currentFileWindow.getPath());
+			_progressTask = new MassTxtUnpacker(this, String.valueOf(_jComboBoxChronicle.getValue()), _currentFileWindow.getPath());
 			_executorService.execute(_progressTask);
 		}
 	}
@@ -406,16 +344,16 @@ public class L2ClientDat extends JFrame
 			return;
 		}
 		
-		final JFileChooser fileopen = new JFileChooser();
-		fileopen.setFileSelectionMode(1);
-		fileopen.setAcceptAllFileFilterUsed(false);
-		fileopen.setCurrentDirectory(new File(ConfigWindow.FILE_OPEN_CURRENT_DIRECTORY));
-		fileopen.setPreferredSize(new Dimension(600, 600));
-		
-		final int ret = fileopen.showDialog(null, SELECT_BTN_STR);
-		if (ret == 0)
+		final DirectoryChooser directoryChooser = new DirectoryChooser();
+		final File recryptDirectory = getExistingDirectory(ConfigWindow.FILE_OPEN_CURRENT_DIRECTORY);
+		if (recryptDirectory != null)
 		{
-			_currentFileWindow = fileopen.getSelectedFile();
+			directoryChooser.setInitialDirectory(recryptDirectory);
+		}
+		final File selectedDirectory = directoryChooser.showDialog(_scene.getWindow());
+		if (selectedDirectory != null)
+		{
+			_currentFileWindow = selectedDirectory;
 			ConfigWindow.save("FILE_OPEN_CURRENT_DIRECTORY", _currentFileWindow.getPath());
 			addLogConsole("---------------------------------------", true);
 			addLogConsole("Selected folder: " + _currentFileWindow.getPath(), true);
@@ -431,44 +369,28 @@ public class L2ClientDat extends JFrame
 			return;
 		}
 		
-		final JFileChooser fileopen = new JFileChooser();
-		fileopen.setFileSelectionMode(0);
-		fileopen.setMultiSelectionEnabled(false);
-		fileopen.setAcceptAllFileFilterUsed(false);
-		fileopen.setFileFilter(new FileNameExtensionFilter(".dat", new String[]
+		final FileChooser fileChooser = new FileChooser();
+		final File lastSelected = new File(ConfigWindow.LAST_FILE_SELECTED);
+		final File initialDirectory = lastSelected.exists() ? lastSelected.getParentFile() : null;
+		if (initialDirectory != null)
 		{
-			"dat"
-		}));
-		fileopen.setFileFilter(new FileNameExtensionFilter(".ini", new String[]
+			fileChooser.setInitialDirectory(initialDirectory);
+		}
+		fileChooser.getExtensionFilters().addAll(
+			new FileChooser.ExtensionFilter(".dat", "*.dat"),
+			new FileChooser.ExtensionFilter(".ini", "*.ini"),
+			new FileChooser.ExtensionFilter(".txt", "*.txt"),
+			new FileChooser.ExtensionFilter(".htm", "*.htm"),
+			new FileChooser.ExtensionFilter(".dat, .ini, .txt, .htm", "*.dat", "*.ini", "*.txt", "*.htm")
+		);
+		final File selectedFile = fileChooser.showOpenDialog(_scene.getWindow());
+		if (selectedFile != null)
 		{
-			"ini"
-		}));
-		fileopen.setFileFilter(new FileNameExtensionFilter(".txt", new String[]
-		{
-			"txt"
-		}));
-		fileopen.setFileFilter(new FileNameExtensionFilter(".htm", new String[]
-		{
-			"htm"
-		}));
-		fileopen.setFileFilter(new FileNameExtensionFilter(".dat, .ini, .txt, .htm", new String[]
-		{
-			"dat",
-			"ini",
-			"txt",
-			"htm"
-		}));
-		fileopen.setSelectedFile(new File(ConfigWindow.LAST_FILE_SELECTED));
-		fileopen.setPreferredSize(new Dimension(600, 600));
-		
-		final int ret = fileopen.showDialog(null, FILE_SELECT_BTN_STR);
-		if (ret == 0)
-		{
-			_currentFileWindow = fileopen.getSelectedFile();
+			_currentFileWindow = selectedFile;
 			ConfigWindow.save("LAST_FILE_SELECTED", _currentFileWindow.getAbsolutePath());
 			addLogConsole("---------------------------------------", true);
 			addLogConsole("Open file: " + _currentFileWindow.getName(), true);
-			_progressTask = new OpenDat(this, String.valueOf(_jComboBoxChronicle.getSelectedItem()), _currentFileWindow);
+			_progressTask = new OpenDat(this, String.valueOf(_jComboBoxChronicle.getValue()), _currentFileWindow);
 			_executorService.execute(_progressTask);
 		}
 	}
@@ -480,21 +402,20 @@ public class L2ClientDat extends JFrame
 			return;
 		}
 		
-		final JFileChooser fileSave = new JFileChooser();
-		fileSave.setCurrentDirectory(new File(ConfigWindow.FILE_SAVE_CURRENT_DIRECTORY));
+		final FileChooser fileSave = new FileChooser();
+		final File saveDirectory = getExistingDirectory(ConfigWindow.FILE_SAVE_CURRENT_DIRECTORY);
+		if (saveDirectory != null)
+		{
+			fileSave.setInitialDirectory(saveDirectory);
+		}
 		if (_currentFileWindow != null)
 		{
-			fileSave.setSelectedFile(new File(_currentFileWindow.getName().split("\\.")[0] + ".txt"));
-			fileSave.setFileFilter(new FileNameExtensionFilter(".txt", new String[]
+			fileSave.setInitialFileName(_currentFileWindow.getName().split("\\.")[0] + ".txt");
+			fileSave.getExtensionFilters().add(new FileChooser.ExtensionFilter(".txt", "*.txt"));
+			final File selectedFile = fileSave.showSaveDialog(_scene.getWindow());
+			if (selectedFile != null)
 			{
-				"txt"
-			}));
-			fileSave.setAcceptAllFileFilterUsed(false);
-			fileSave.setPreferredSize(new Dimension(600, 600));
-			final int ret = fileSave.showSaveDialog(null);
-			if (ret == 0)
-			{
-				_progressTask = new SaveTxt(this, fileSave.getSelectedFile());
+				_progressTask = new SaveTxt(this, selectedFile);
 				_executorService.execute(_progressTask);
 			}
 		}
@@ -513,7 +434,7 @@ public class L2ClientDat extends JFrame
 		
 		if (_currentFileWindow != null)
 		{
-			_progressTask = new SaveDat(this, _currentFileWindow, String.valueOf(_jComboBoxChronicle.getSelectedItem()));
+			_progressTask = new SaveDat(this, _currentFileWindow, String.valueOf(_jComboBoxChronicle.getValue()));
 			_executorService.execute(_progressTask);
 		}
 		else
@@ -561,30 +482,36 @@ public class L2ClientDat extends JFrame
 		return crypter;
 	}
 	
-	private void saveComboBox(JComboBox<String> jComboBox, String param)
+	private void saveComboBox(ComboBox<String> comboBox, String param)
 	{
-		ConfigWindow.save(param, String.valueOf(jComboBox.getSelectedItem()));
+		ConfigWindow.save(param, String.valueOf(comboBox.getValue()));
 	}
 	
 	public void onStartTask()
 	{
-		setCursor(Cursor.getPredefinedCursor(3));
-		_progressBar.setValue(0);
+		if (_scene != null)
+		{
+			_scene.setCursor(Cursor.WAIT);
+		}
+		_progressBar.setProgress(0.0);
 		checkButtons();
 	}
 	
 	public void onProgressTask(int val)
 	{
-		_progressBar.setValue(val);
+		_progressBar.setProgress(val / 100.0);
 	}
 	
 	public void onStopTask()
 	{
 		_progressTask = null;
-		_progressBar.setValue(100);
+		_progressBar.setProgress(1.0);
 		checkButtons();
 		Toolkit.getDefaultToolkit().beep();
-		setCursor(null);
+		if (_scene != null)
+		{
+			_scene.setCursor(Cursor.DEFAULT);
+		}
 	}
 	
 	public void onAbortTask()
@@ -595,7 +522,10 @@ public class L2ClientDat extends JFrame
 		}
 		
 		_progressTask = null;
-		setCursor(null);
+		if (_scene != null)
+		{
+			_scene.setCursor(Cursor.DEFAULT);
+		}
 		checkButtons();
 	}
 	
@@ -603,70 +533,86 @@ public class L2ClientDat extends JFrame
 	{
 		if (_progressTask != null)
 		{
-			_actionPanels.forEach(p ->
-			{
-				final Component[] array = p.getComponents();
-				int i = 0;
-				for (int length = array.length; i < length; ++i)
-				{
-					final Component c = array[i];
-					c.setEnabled(false);
-				}
-				return;
-			});
-			
-			_abortTaskButton.setEnabled(true);
+			_actionPanels.forEach(p -> p.getChildren().forEach(child -> child.setDisable(true)));
+			_abortTaskButton.setDisable(false);
 		}
 		else
 		{
-			_actionPanels.forEach(p ->
+			_actionPanels.forEach(p -> p.getChildren().forEach(child ->
 			{
-				final Component[] array2 = p.getComponents();
-				int j = 0;
-				for (int length2 = array2.length; j < length2; ++j)
+				if (child == _saveTxtButton)
 				{
-					final Component c2 = array2[j];
-					if (c2 == _saveTxtButton)
-					{
-						c2.setEnabled(_currentFileWindow != null);
-					}
-					else if (c2 == _saveDatButton)
-					{
-						c2.setEnabled(_currentFileWindow != null);
-					}
-					else
-					{
-						c2.setEnabled(true);
-					}
+					child.setDisable(_currentFileWindow == null);
 				}
-				return;
-			});
+				else if (child == _saveDatButton)
+				{
+					child.setDisable(_currentFileWindow == null);
+				}
+				else
+				{
+					child.setDisable(false);
+				}
+			}));
 			
-			_abortTaskButton.setEnabled(false);
+			_abortTaskButton.setDisable(true);
 		}
 	}
 	
-	private static class LineNumberingTextArea extends JTextArea implements DocumentListener
+	private File getExistingDirectory(String path)
 	{
-		private final JTextArea textArea;
-		private int lastLines;
-		
-		public LineNumberingTextArea(JTextArea area)
+		if (path == null)
 		{
-			lastLines = 0;
-			textArea = area;
+			return null;
 		}
+		final File directory = new File(path);
+		return directory.isDirectory() ? directory : null;
+	}
+	
+	private void setIcons(Stage stage)
+	{
+		final List<Image> icons = new ArrayList<>();
+		icons.add(loadIcon("l2jmobius_16x16.png"));
+		icons.add(loadIcon("l2jmobius_32x32.png"));
+		icons.add(loadIcon("l2jmobius_64x64.png"));
+		icons.add(loadIcon("l2jmobius_128x128.png"));
+		icons.removeIf(icon -> icon == null);
+		stage.getIcons().addAll(icons);
+	}
+	
+	private Image loadIcon(String fileName)
+	{
+		final File file = new File("." + File.separator + "images" + File.separator + fileName);
+		if (!file.exists())
+		{
+			return null;
+		}
+		return new Image(file.toURI().toString());
+	}
+	
+	private void syncScrollBars(TextArea main, TextArea lineNumbers)
+	{
+		final ScrollBar mainBar = (ScrollBar) main.lookup(".scroll-bar:vertical");
+		final ScrollBar lineBar = (ScrollBar) lineNumbers.lookup(".scroll-bar:vertical");
+		if ((mainBar == null) || (lineBar == null))
+		{
+			return;
+		}
+		lineBar.valueProperty().bindBidirectional(mainBar.valueProperty());
+	}
+	
+	private static class LineNumberingTextArea extends TextArea
+	{
+		private int lastLines = 0;
 		
 		public void cleanUp()
 		{
 			setText("");
-			removeAll();
 			lastLines = 0;
 		}
 		
-		private void updateText()
+		private void updateText(String text)
 		{
-			final int length = textArea.getLineCount();
+			final int length = countLines(text);
 			if (length == lastLines)
 			{
 				return;
@@ -682,22 +628,21 @@ public class L2ClientDat extends JFrame
 			setText(lineNumbersTextBuilder.toString());
 		}
 		
-		@Override
-		public void insertUpdate(DocumentEvent documentEvent)
+		private int countLines(String text)
 		{
-			updateText();
-		}
-		
-		@Override
-		public void removeUpdate(DocumentEvent documentEvent)
-		{
-			updateText();
-		}
-		
-		@Override
-		public void changedUpdate(DocumentEvent documentEvent)
-		{
-			updateText();
+			if ((text == null) || text.isEmpty())
+			{
+				return 1;
+			}
+			
+			int count = 1;
+			int index = text.indexOf('\n');
+			while (index != -1)
+			{
+				count++;
+				index = text.indexOf('\n', index + 1);
+			}
+			return count;
 		}
 	}
 }

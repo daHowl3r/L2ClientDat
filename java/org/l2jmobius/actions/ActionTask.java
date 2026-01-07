@@ -16,23 +16,24 @@
  */
 package org.l2jmobius.actions;
 
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
-import java.util.concurrent.ExecutionException;
-
-import javax.swing.SwingWorker;
-
+import javafx.application.Platform;
+import javafx.concurrent.Task;
 import org.l2jmobius.L2ClientDat;
 
-public abstract class ActionTask extends SwingWorker<Void, Void> implements PropertyChangeListener
+public abstract class ActionTask extends Task<Void>
 {
 	protected final L2ClientDat _l2clientdat;
 	private double _progress = 0.0;
+	private int _lastProgressValue = 0;
 	
 	public ActionTask(L2ClientDat l2clientdat)
 	{
 		_l2clientdat = l2clientdat;
-		addPropertyChangeListener(this);
+		progressProperty().addListener((observable, oldValue, newValue) -> _l2clientdat.onProgressTask((int) Math.round(newValue.doubleValue() * 100.0)));
+		setOnRunning(event -> _l2clientdat.onStartTask());
+		setOnSucceeded(event -> _l2clientdat.onStopTask());
+		setOnCancelled(event -> _l2clientdat.onStopTask());
+		setOnFailed(event -> _l2clientdat.onStopTask());
 	}
 	
 	public L2ClientDat getL2ClientDat()
@@ -41,14 +42,13 @@ public abstract class ActionTask extends SwingWorker<Void, Void> implements Prop
 	}
 	
 	@Override
-	public Void doInBackground()
+	protected Void call()
 	{
-		_l2clientdat.onStartTask();
-		setProgress(0);
+		updateProgress(0, 100);
 		action();
 		if (!isCancelled())
 		{
-			setProgress(100);
+			updateProgress(100, 100);
 		}
 		return null;
 	}
@@ -62,8 +62,8 @@ public abstract class ActionTask extends SwingWorker<Void, Void> implements Prop
 			return;
 		}
 		
-		cancel(true);
-		_l2clientdat.onAbortTask();
+		cancel();
+		Platform.runLater(_l2clientdat::onAbortTask);
 	}
 	
 	public double addProgress(double progress, double value, double weight)
@@ -75,9 +75,10 @@ public abstract class ActionTask extends SwingWorker<Void, Void> implements Prop
 	public void changeProgress(double value)
 	{
 		final int intValue = (int) Math.max(0.0, Math.min(100.0, value));
-		if (intValue > getProgress())
+		if (intValue > _lastProgressValue)
 		{
-			setProgress(intValue);
+			_lastProgressValue = intValue;
+			updateProgress(intValue, 100);
 		}
 	}
 	
@@ -91,29 +92,4 @@ public abstract class ActionTask extends SwingWorker<Void, Void> implements Prop
 		return (value / 100.0) * weight;
 	}
 	
-	@Override
-	public void done()
-	{
-		if (!isCancelled())
-		{
-			try
-			{
-				get();
-			}
-			catch (ExecutionException | InterruptedException e)
-			{
-				e.printStackTrace();
-			}
-		}
-		_l2clientdat.onStopTask();
-	}
-	
-	@Override
-	public void propertyChange(PropertyChangeEvent evt)
-	{
-		if ("progress".equals(evt.getPropertyName()))
-		{
-			_l2clientdat.onProgressTask((int) evt.getNewValue());
-		}
-	}
 }
