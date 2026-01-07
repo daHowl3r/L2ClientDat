@@ -28,7 +28,7 @@ import org.fxmisc.richtext.model.StyleSpansBuilder;
  */
 public class EditorCodeArea extends CodeArea
 {
-	private static final Pattern TOKEN_PATTERN = Pattern.compile("([^=\\s]+)=\\[([^\\]]*)\\]");
+	private static final Pattern TOKEN_PATTERN = Pattern.compile("([^=\\s]+)=(\\[[^\\]]*\\]|\\{[^}]*\\}|[^\\s]+)?");
 
 	/**
 	 * Creates a code area that applies syntax highlighting for key/value tokens.
@@ -37,6 +37,7 @@ public class EditorCodeArea extends CodeArea
 	{
 		textProperty().addListener((observable, oldValue, newValue) -> setStyleSpans(0, buildHighlighting(newValue)));
 	}
+
 	/**
 	 * Clears the current editor text and undo history.
 	 */
@@ -53,7 +54,7 @@ public class EditorCodeArea extends CodeArea
 	{
 		getUndoManager().forgetHistory();
 	}
-  
+
 	private StyleSpans<java.util.Collection<String>> buildHighlighting(String text)
 	{
 		final String value = text == null ? "" : text;
@@ -66,10 +67,25 @@ public class EditorCodeArea extends CodeArea
 			{
 				spansBuilder.add(Collections.singleton("rich-text-normal"), matcher.start() - lastEnd);
 			}
-			spansBuilder.add(Collections.singleton("rich-text-key"), matcher.group(1).length());
-			spansBuilder.add(Collections.singleton("rich-text-separator"), 2);
-			spansBuilder.add(Collections.singleton("rich-text-value"), matcher.group(2).length());
+			final String key = matcher.group(1);
+			final String valueToken = matcher.group(2);
+			spansBuilder.add(Collections.singleton("rich-text-key"), key.length());
 			spansBuilder.add(Collections.singleton("rich-text-separator"), 1);
+			if (valueToken != null && !valueToken.isEmpty())
+			{
+				final int valueStart = matcher.start(2);
+				final int valueEnd = matcher.end(2);
+				if ((valueEnd - valueStart) >= 2 && ((valueToken.startsWith("[") && valueToken.endsWith("]")) || (valueToken.startsWith("{") && valueToken.endsWith("}"))))
+				{
+					spansBuilder.add(Collections.singleton("rich-text-separator"), 1);
+					spansBuilder.add(Collections.singleton("rich-text-value"), valueToken.length() - 2);
+					spansBuilder.add(Collections.singleton("rich-text-separator"), 1);
+				}
+				else
+				{
+					spansBuilder.add(Collections.singleton("rich-text-value"), valueToken.length());
+				}
+			}
 			lastEnd = matcher.end();
 		}
 		if (lastEnd < value.length())
@@ -78,5 +94,4 @@ public class EditorCodeArea extends CodeArea
 		}
 		return spansBuilder.create();
 	}
-  
 }

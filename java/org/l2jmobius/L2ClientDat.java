@@ -197,7 +197,7 @@ public class L2ClientDat extends Application
 	public void setEditorText(String text)
 	{
 		_lineNumberingTextArea.cleanUp();
-		Platform.runLater(() -> _textPaneMain.setText(text));
+		Platform.runLater(() -> _textPaneMain.replaceText(text));
 	}
 	
 	void massTxtPackActionPerformed(ActionEvent evt)
