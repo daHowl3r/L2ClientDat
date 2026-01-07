@@ -63,6 +63,7 @@ import org.l2jmobius.clientcryptor.crypt.DatCrypter;
 import org.l2jmobius.config.ConfigDebug;
 import org.l2jmobius.config.ConfigWindow;
 import org.l2jmobius.forms.JPopupTextArea;
+import org.l2jmobius.forms.RichTextEditor;
 import org.l2jmobius.util.Util;
 import org.l2jmobius.xml.CryptVersionParser;
 import org.l2jmobius.xml.DescriptorParser;
@@ -82,7 +83,7 @@ public class L2ClientDat extends Application
 	private static JPopupTextArea _textPaneLog;
 	private final ExecutorService _executorService = Executors.newCachedThreadPool();
 	private final ArrayList<Pane> _actionPanels = new ArrayList<>();
-	private JPopupTextArea _textPaneMain;
+	private RichTextEditor _textPaneMain;
 	private LineNumberingTextArea _lineNumberingTextArea;
 	private ComboBox<String> _jComboBoxChronicle;
 	private ComboBox<String> _jComboBoxEncrypt;
@@ -156,6 +157,7 @@ public class L2ClientDat extends Application
 		configureUi();
 		
 		_scene = new Scene(root);
+		_scene.getStylesheets().add(getClass().getResource("/org/l2jmobius/editor.css").toExternalForm());
 		stage.setScene(_scene);
 		
 		setIcons(stage);
@@ -170,7 +172,7 @@ public class L2ClientDat extends Application
 		_executorService.shutdownNow();
 	}
 	
-	public JPopupTextArea getTextPaneMain()
+	public RichTextEditor getTextPaneMain()
 	{
 		return _textPaneMain;
 	}
@@ -498,9 +500,9 @@ public class L2ClientDat extends Application
 		return new Image(file.toURI().toString());
 	}
 	
-	private void syncScrollBars(TextArea main, TextArea lineNumbers)
+	private void syncScrollBars(RichTextEditor main, TextArea lineNumbers)
 	{
-		final ScrollBar mainBar = (ScrollBar) main.lookup(".scroll-bar:vertical");
+		final ScrollBar mainBar = (ScrollBar) main.getInputArea().lookup(".scroll-bar:vertical");
 		final ScrollBar lineBar = (ScrollBar) lineNumbers.lookup(".scroll-bar:vertical");
 		if ((mainBar == null) || (lineBar == null))
 		{
@@ -550,7 +552,7 @@ public class L2ClientDat extends Application
 		_progressBar.setProgress(0.0);
 		
 		final Font font = Font.font(new Label().getFont().getName(), FontWeight.BOLD, 13.0);
-		_textPaneMain.setStyle("-fx-control-inner-background: #293134; -fx-text-fill: white;");
+		_textPaneMain.setEditorStyle("-fx-control-inner-background: #293134; -fx-text-fill: white;");
 		_textPaneMain.setFont(font);
 		_textPaneMain.textProperty().addListener((observable, oldValue, newValue) -> _lineNumberingTextArea.updateText(newValue));
 		_lineNumberingTextArea.updateText(_textPaneMain.getText());

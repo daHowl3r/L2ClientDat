@@ -24,6 +24,7 @@ import javafx.scene.control.ProgressBar;
 import javafx.scene.control.SplitPane;
 import javafx.scene.layout.HBox;
 import org.l2jmobius.forms.JPopupTextArea;
+import org.l2jmobius.forms.RichTextEditor;
 
 /**
  * Controller for the L2ClientDat JavaFX layout.
@@ -55,7 +56,7 @@ public class L2ClientDatController
 	@FXML
 	private ProgressBar progressBar;
 	@FXML
-	private JPopupTextArea textPaneMain;
+	private RichTextEditor textPaneMain;
 	@FXML
 	private LineNumberingTextArea lineNumberingTextArea;
 	@FXML
@@ -176,7 +177,7 @@ public class L2ClientDatController
 		return progressBar;
 	}
 	
-	JPopupTextArea getTextPaneMain()
+	RichTextEditor getTextPaneMain()
 	{
 		return textPaneMain;
 	}
