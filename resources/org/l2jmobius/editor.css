@@ -1,0 +1,19 @@
+.rich-text-display {
+    -fx-padding: 5 7 5 7;
+}
+
+.rich-text-normal {
+    -fx-fill: white;
+}
+
+.rich-text-key {
+    -fx-fill: #9cdcfe;
+}
+
+.rich-text-value {
+    -fx-fill: #ce9178;
+}
+
+.rich-text-separator {
+    -fx-fill: #d4d4d4;
+}
