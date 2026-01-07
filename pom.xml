@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>org.l2jmobius</groupId>
+	<artifactId>L2ClientDat</artifactId>
+	<version>1.0-SNAPSHOT</version>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<maven.compiler.release>24</maven.compiler.release>
+		<maven.build.timestamp.format>yyyy-MM-dd HH:mm:ss z</maven.build.timestamp.format>
+	</properties>
+
+	<build>
+		<sourceDirectory>${project.basedir}/java</sourceDirectory>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.13.0</version>
+				<configuration>
+					<release>${maven.compiler.release}</release>
+					<encoding>${project.build.sourceEncoding}</encoding>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>3.3.0</version>
+				<configuration>
+					<outputDirectory>${project.basedir}/build/dist/libs</outputDirectory>
+					<finalName>L2ClientDat</finalName>
+					<archive>
+						<manifestEntries>
+							<Build-By>${user.name}</Build-By>
+							<Build-Date>${maven.build.timestamp}</Build-Date>
+							<Implementation-URL>http://www.l2jmobius.org/</Implementation-URL>
+							<Main-Class>org.l2jmobius.L2ClientDat</Main-Class>
+						</manifestEntries>
+					</archive>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<version>3.6.0</version>
+				<configuration>
+					<appendAssemblyId>false</appendAssemblyId>
+					<finalName>L2ClientDat</finalName>
+					<outputDirectory>${project.basedir}/build</outputDirectory>
+					<descriptors>
+						<descriptor>${project.basedir}/assembly/dist.xml</descriptor>
+					</descriptors>
+				</configuration>
+				<executions>
+					<execution>
+						<id>dist-zip</id>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>
