@@ -16,13 +16,27 @@
  */
 package org.l2jmobius.forms;
 
+import java.util.Collections;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.fxmisc.richtext.CodeArea;
+import org.fxmisc.richtext.model.StyleSpans;
+import org.fxmisc.richtext.model.StyleSpansBuilder;
 
 /**
  * Code editor area with cleanup helpers for the main editor pane.
  */
 public class EditorCodeArea extends CodeArea
 {
+	private static final Pattern TOKEN_PATTERN = Pattern.compile("([^=\\s]+)=\\[([^\\]]*)\\]");
+
+	/**
+	 * Creates a code area that applies syntax highlighting for key/value tokens.
+	 */
+	public EditorCodeArea()
+	{
+		textProperty().addListener((observable, oldValue, newValue) -> setStyleSpans(0, buildHighlighting(newValue)));
+	}
 	/**
 	 * Clears the current editor text and undo history.
 	 */
@@ -39,4 +53,30 @@ public class EditorCodeArea extends CodeArea
 	{
 		getUndoManager().forgetHistory();
 	}
+  
+	private StyleSpans<java.util.Collection<String>> buildHighlighting(String text)
+	{
+		final String value = text == null ? "" : text;
+		final StyleSpansBuilder<java.util.Collection<String>> spansBuilder = new StyleSpansBuilder<>();
+		final Matcher matcher = TOKEN_PATTERN.matcher(value);
+		int lastEnd = 0;
+		while (matcher.find())
+		{
+			if (matcher.start() > lastEnd)
+			{
+				spansBuilder.add(Collections.singleton("rich-text-normal"), matcher.start() - lastEnd);
+			}
+			spansBuilder.add(Collections.singleton("rich-text-key"), matcher.group(1).length());
+			spansBuilder.add(Collections.singleton("rich-text-separator"), 2);
+			spansBuilder.add(Collections.singleton("rich-text-value"), matcher.group(2).length());
+			spansBuilder.add(Collections.singleton("rich-text-separator"), 1);
+			lastEnd = matcher.end();
+		}
+		if (lastEnd < value.length())
+		{
+			spansBuilder.add(Collections.singleton("rich-text-normal"), value.length() - lastEnd);
+		}
+		return spansBuilder.create();
+	}
+  
 }
