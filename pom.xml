@@ -21,6 +21,21 @@
 			<artifactId>javafx-controls</artifactId>
 			<version>${javafx.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>org.openjfx</groupId>
+			<artifactId>javafx-graphics</artifactId>
+			<version>${javafx.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.openjfx</groupId>
+			<artifactId>javafx-base</artifactId>
+			<version>${javafx.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.openjfx</groupId>
+			<artifactId>javafx-fxml</artifactId>
+			<version>${javafx.version}</version>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -40,18 +55,17 @@
 				<artifactId>maven-jar-plugin</artifactId>
 				<version>3.3.0</version>
 				<configuration>
-					<outputDirectory>${project.basedir}/build/dist</outputDirectory>
+					<outputDirectory>${project.basedir}/build/dist/libs</outputDirectory>
 					<finalName>L2ClientDat</finalName>
 					<archive>
 						<manifest>
 							<addClasspath>true</addClasspath>
-							<classpathPrefix>libs/</classpathPrefix>
 						</manifest>
 						<manifestEntries>
 							<Build-By>${user.name}</Build-By>
 							<Build-Date>${maven.build.timestamp}</Build-Date>
 							<Implementation-URL>http://www.l2jmobius.org/</Implementation-URL>
-							<Main-Class>org.l2jmobius.L2ClientDat</Main-Class>
+							<Main-Class>org.l2jmobius.L2ClientDatLauncher</Main-Class>
 						</manifestEntries>
 					</archive>
 				</configuration>
@@ -59,7 +73,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-dependency-plugin</artifactId>
-				<version>3.9.0</version>
+				<version>3.6.1</version>
 				<executions>
 					<execution>
 						<id>copy-dependencies</id>
