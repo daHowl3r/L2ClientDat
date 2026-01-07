@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ProgressBar?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.geometry.Insets?>
+<?import org.l2jmobius.LineNumberingTextArea?>
+<?import org.l2jmobius.forms.JPopupTextArea?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.l2jmobius.L2ClientDatController">
+	<top>
+		<VBox spacing="8.0">
+			<padding>
+				<Insets top="8.0" right="8.0" bottom="8.0" left="8.0" />
+			</padding>
+			<children>
+				<HBox fx:id="buttonPane2" spacing="8.0">
+					<children>
+						<Label text="Structures" />
+						<ComboBox fx:id="jComboBoxChronicle" />
+						<Label text="Encrypt:" />
+						<ComboBox fx:id="jComboBoxEncrypt" />
+						<Label text="Formatter:" />
+						<ComboBox fx:id="jComboBoxFormatter" />
+					</children>
+				</HBox>
+				<HBox fx:id="buttonPane3" spacing="8.0">
+					<children>
+						<Button fx:id="openButton" text="Open" onAction="#openSelectFileWindow" />
+						<Button fx:id="saveTxtButton" text="Save (TXT)" onAction="#saveTxtActionPerformed" />
+						<Button fx:id="saveDatButton" text="Save (DAT)" onAction="#saveDatActionPerformed" />
+						<Button fx:id="massTxtUnpackButton" text="Unpack all" onAction="#massTxtUnpackActionPerformed" />
+						<Button fx:id="massTxtPackButton" text="Pack all" onAction="#massTxtPackActionPerformed" />
+						<Button fx:id="massRecryptButton" text="Patch all" onAction="#massRecryptActionPerformed" />
+					</children>
+				</HBox>
+				<HBox fx:id="progressPane" spacing="8.0">
+					<children>
+						<ProgressBar fx:id="progressBar" prefWidth="300.0" progress="0.0" />
+						<Button fx:id="abortTaskButton" text="Abort" onAction="#abortActionPerformed" />
+					</children>
+				</HBox>
+			</children>
+		</VBox>
+	</top>
+	<center>
+		<SplitPane fx:id="splitPane" orientation="VERTICAL" dividerPositions="0.7">
+			<items>
+				<HBox fx:id="editorPane">
+					<children>
+						<LineNumberingTextArea fx:id="lineNumberingTextArea" prefWidth="50.0" />
+						<JPopupTextArea fx:id="textPaneMain" />
+					</children>
+				</HBox>
+				<JPopupTextArea fx:id="textPaneLog" />
+			</items>
+		</SplitPane>
+	</center>
+</BorderPane>
