@@ -17,3 +17,8 @@
 .rich-text-separator {
     -fx-fill: #d4d4d4;
 }
+
+.rich-text-error {
+    -fx-underline: true;
+    -fx-fill: #ff6b6b;
+}
