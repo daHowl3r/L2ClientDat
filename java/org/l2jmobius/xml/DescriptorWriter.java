@@ -60,6 +60,123 @@ public class DescriptorWriter
 		101,
 		0
 	};
+
+	/**
+	 * Validation result for descriptor data parsing.
+	 */
+	public static final class ValidationResult
+	{
+		private final boolean _valid;
+		private final String _message;
+		private final int _line;
+		private final int _offset;
+		
+		private ValidationResult(boolean valid, String message, int line, int offset)
+		{
+			_valid = valid;
+			_message = message;
+			_line = line;
+			_offset = offset;
+		}
+		
+		public boolean isValid()
+		{
+			return _valid;
+		}
+		
+		public String getMessage()
+		{
+			return _message;
+		}
+		
+		public int getLine()
+		{
+			return _line;
+		}
+		
+		public int getOffset()
+		{
+			return _offset;
+		}
+		
+		private static ValidationResult valid()
+		{
+			return new ValidationResult(true, null, -1, -1);
+		}
+		
+		private static ValidationResult invalid(String message, int line, int offset)
+		{
+			return new ValidationResult(false, message, line, offset);
+		}
+	}
+
+	/**
+	 * Validates descriptor data using the same parsing logic as {@link #parseData(ActionTask, double, File, DatCrypter, Descriptor, String, boolean)}
+	 * without writing bytes.
+	 * @param actionTask the task used for formatter progress/cancellation checks
+	 * @param weight the progress weight used by formatter logic
+	 * @param currentFile the current file for name mapping
+	 * @param crypter the dat crypter for name mapping
+	 * @param desc the descriptor to validate against
+	 * @param data the source data
+	 * @param mass whether to suppress logging for mass operations
+	 * @return validation result with error message and approximate location
+	 */
+	public static ValidationResult validateData(ActionTask actionTask, double weight, File currentFile, DatCrypter crypter, Descriptor desc, String data, boolean mass) throws Exception
+	{
+		final String sourceData = data;
+		try
+		{
+			double progress = (actionTask != null) ? actionTask.getCurrentProgress() : 0.0;
+			if ((desc.getFormat() != null) && !ConfigWindow.CURRENT_FORMATTER.equalsIgnoreCase("Disabled"))
+			{
+				if (actionTask != null)
+				{
+					data = desc.getFormat().encode(actionTask, actionTask.getWeightValue(20.0, weight), data);
+					progress = actionTask.addProgress(progress, 20.0, weight);
+				}
+				else
+				{
+					data = desc.getFormat().encode(null, 0.0, data);
+				}
+			}
+			
+			if (desc.isRawData())
+			{
+				final byte[] bytes = parseNodeValue(currentFile, crypter, data, desc.getNodes().get(0), true, mass);
+				if (bytes == null)
+				{
+					return ValidationResult.invalid("Failed to parse raw data.", -1, -1);
+				}
+				if (actionTask != null)
+				{
+					progress = actionTask.addProgress(progress, 50.0, weight);
+				}
+			}
+			else
+			{
+				final String lines = data.replace("\r\n", "\t");
+				final List<WriteData> writeData = new ArrayList<>();
+				packData(actionTask, (actionTask != null) ? actionTask.getWeightValue(30.0, weight) : 0.0, currentFile, crypter, writeData, lines, new HashMap<>(), new HashMap<>(), desc.getNodes(), mass);
+				if (actionTask != null)
+				{
+					progress = actionTask.addProgress(progress, 30.0, weight);
+				}
+			}
+			
+			if (actionTask != null)
+			{
+				actionTask.addProgress(progress, 10.0, weight);
+			}
+		}
+		catch (PackDataException | CycleArgumentException e)
+		{
+			final ValidationLocation location = findValidationLocation(sourceData, e.getMessage());
+			return ValidationResult.invalid(conciseMessage(e.getMessage()), location.getLine(), location.getOffset());
+		}
+		
+		return ValidationResult.valid();
+	}
 	
 	public static byte[] parseData(ActionTask actionTask, double weight, File currentFile, DatCrypter crypter, Descriptor desc, String data, boolean mass) throws Exception
 	{
@@ -462,6 +579,165 @@ public class DescriptorWriter
 			return mapData.get(node);
 		}
 		return paramMap.get(name);
+	}
+
+	private static String conciseMessage(String message)
+	{
+		if (message == null)
+		{
+			return null;
+		}
+		final int lf = message.indexOf('\n');
+		final int cr = message.indexOf('\r');
+		final int lineBreak;
+		if ((lf == -1) && (cr == -1))
+		{
+			lineBreak = -1;
+		}
+		else if (lf == -1)
+		{
+			lineBreak = cr;
+		}
+		else if (cr == -1)
+		{
+			lineBreak = lf;
+		}
+		else
+		{
+			lineBreak = Math.min(lf, cr);
+		}
+		return (lineBreak > -1) ? message.substring(0, lineBreak) : message;
+	}
+
+	private static ValidationLocation findValidationLocation(String data, String message)
+	{
+		final String key = extractKeyFromMessage(message);
+		if (key == null)
+		{
+			return ValidationLocation.unknown();
+		}
+		
+		return findKeyLocation(data, key);
+	}
+
+	private static String extractKeyFromMessage(String message)
+	{
+		if (message == null)
+		{
+			return null;
+		}
+		
+		final String[] prefixes =
+		{
+			"Not found data for cycle: ",
+			"Wrong static cycle count for cycle: ",
+			"Wrong param count for cycle: ",
+			"Not found data for wrapper: ",
+			"Not found data for variable: ",
+			"Not found data for if: ",
+			"Not found data for else: ",
+			"Not found data for mask: "
+		};
+		
+		for (String prefix : prefixes)
+		{
+			final int index = message.indexOf(prefix);
+			if (index > -1)
+			{
+				final int start = index + prefix.length();
+				int end = start;
+				while ((end < message.length()) && !Character.isWhitespace(message.charAt(end)) && (message.charAt(end) != ','))
+				{
+					end++;
+				}
+				return message.substring(start, end);
+			}
+		}
+		
+		return null;
+	}
+
+	private static ValidationLocation findKeyLocation(String data, String key)
+	{
+		if ((data == null) || (key == null) || key.isEmpty())
+		{
+			return ValidationLocation.unknown();
+		}
+		
+		int line = 1;
+		int position = 0;
+		final int length = data.length();
+		while (position <= length)
+		{
+			if (position == length)
+			{
+				return ValidationLocation.unknown();
+			}
+			
+			int lineEnd = position;
+			while ((lineEnd < length) && (data.charAt(lineEnd) != '\r') && (data.charAt(lineEnd) != '\n'))
+			{
+				lineEnd++;
+			}
+			
+			final String lineText = data.substring(position, lineEnd);
+			int partStart = 0;
+			final String[] parts = lineText.split("\t", -1);
+			for (String part : parts)
+			{
+				final int eqIndex = part.indexOf('=');
+				if (eqIndex > 0)
+				{
+					final String partKey = part.substring(0, eqIndex);
+					if (partKey.equals(key))
+					{
+						return new ValidationLocation(line, position + partStart + 1);
+					}
+				}
+				partStart += part.length() + 1;
+			}
+			
+			if ((lineEnd < length) && (data.charAt(lineEnd) == '\r') && ((lineEnd + 1) < length) && (data.charAt(lineEnd + 1) == '\n'))
+			{
+				position = lineEnd + 2;
+			}
+			else
+			{
+				position = lineEnd + 1;
+			}
+			line++;
+		}
+		
+		return ValidationLocation.unknown();
+	}
+
+	private static final class ValidationLocation
+	{
+		private static final ValidationLocation UNKNOWN = new ValidationLocation(-1, -1);
+		
+		private final int _line;
+		private final int _offset;
+		
+		private ValidationLocation(int line, int offset)
+		{
+			_line = line;
+			_offset = offset;
+		}
+		
+		public int getLine()
+		{
+			return _line;
+		}
+		
+		public int getOffset()
+		{
+			return _offset;
+		}
+		
+		public static ValidationLocation unknown()
+		{
+			return UNKNOWN;
+		}
 	}
 	
 	private static void writeSize(File currentFile, DatCrypter crypter, List<WriteData> writeData, ParamNode node, int cycleSize, boolean mass) throws CycleArgumentException, PackDataException

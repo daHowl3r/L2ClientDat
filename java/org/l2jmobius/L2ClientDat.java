@@ -22,13 +22,16 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
+import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -40,6 +43,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.IndexRange;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ScrollBar;
 import javafx.scene.control.TextArea;
@@ -52,6 +56,7 @@ import javafx.scene.text.FontWeight;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 import org.l2jmobius.actions.ActionTask;
 import org.l2jmobius.actions.MassRecryptor;
 import org.l2jmobius.actions.MassTxtPacker;
@@ -67,7 +72,9 @@ import org.l2jmobius.forms.EditorCodeArea;
 import org.l2jmobius.forms.JPopupTextArea;
 import org.l2jmobius.util.Util;
 import org.l2jmobius.xml.CryptVersionParser;
+import org.l2jmobius.xml.Descriptor;
 import org.l2jmobius.xml.DescriptorParser;
+import org.l2jmobius.xml.DescriptorWriter;
 
 public class L2ClientDat extends Application
 {
@@ -95,6 +102,10 @@ public class L2ClientDat extends Application
 	private Button _abortTaskButton;
 	private ProgressBar _progressBar;
 	private Scene _scene;
+	private PauseTransition _validationDebounce;
+	private final AtomicInteger _validationSequence = new AtomicInteger();
+	private String _lastValidationMessage = null;
+	private boolean _isValidationValid = true;
 	
 	private File _currentFileWindow = null;
 	private ActionTask _progressTask = null;
@@ -455,11 +466,11 @@ public class L2ClientDat extends Application
 			{
 				if (child == _saveTxtButton)
 				{
-					child.setDisable(_currentFileWindow == null);
+					child.setDisable((_currentFileWindow == null) || !_isValidationValid);
 				}
 				else if (child == _saveDatButton)
 				{
-					child.setDisable(_currentFileWindow == null);
+					child.setDisable((_currentFileWindow == null) || !_isValidationValid);
 				}
 				else
 				{
@@ -512,6 +523,177 @@ public class L2ClientDat extends Application
 		}
 		lineBar.valueProperty().bindBidirectional(mainBar.valueProperty());
 	}
+
+	private void scheduleValidation(String text)
+	{
+		if (_validationDebounce == null)
+		{
+			return;
+		}
+		
+		final File currentFile = _currentFileWindow;
+		final String chronicle = String.valueOf(_jComboBoxChronicle.getValue());
+		final int sequence = _validationSequence.incrementAndGet();
+		_validationDebounce.stop();
+		_validationDebounce.setOnFinished(event -> runValidationAsync(text, sequence, currentFile, chronicle));
+		_validationDebounce.playFromStart();
+	}
+	
+	private void runValidationAsync(String text, int sequence, File currentFile, String chronicle)
+	{
+		if ((currentFile == null) || (chronicle == null))
+		{
+			Platform.runLater(() -> applyValidationResult(null, text));
+			clearValidationMessage();
+			return;
+		}
+		
+		_executorService.execute(() ->
+		{
+			if (sequence != _validationSequence.get())
+			{
+				return;
+			}
+			
+			final String fileName = resolveDescriptorFileName(currentFile.getName());
+			final Descriptor desc = DescriptorParser.getInstance().findDescriptorForFile(chronicle, fileName);
+			if (desc == null)
+			{
+				Platform.runLater(() -> applyValidationResult(null, text));
+				clearValidationMessage();
+				return;
+			}
+			
+			final DatCrypter crypter = getEncryptor(currentFile);
+			final DescriptorWriter.ValidationResult result;
+			try
+			{
+				result = DescriptorWriter.validateData(new ValidationActionTask(this), 100.0, currentFile, crypter, desc, text, true);
+			}
+			catch (Exception e)
+			{
+				LOGGER.log(Level.WARNING, "Validation failed to complete.", e);
+				return;
+			}
+			
+			if (sequence != _validationSequence.get())
+			{
+				return;
+			}
+			
+			if (result.isValid())
+			{
+				clearValidationMessage();
+			}
+			else
+			{
+				logValidationError(result);
+			}
+			
+			Platform.runLater(() -> applyValidationResult(result, text));
+		});
+	}
+	
+	private String resolveDescriptorFileName(String fileName)
+	{
+		if (fileName.endsWith(".txt"))
+		{
+			return fileName.replace(".txt", ".dat");
+		}
+		return fileName;
+	}
+	
+	private void logValidationError(DescriptorWriter.ValidationResult result)
+	{
+		final String message = formatValidationMessage(result);
+		if ((message == null) || message.equals(_lastValidationMessage))
+		{
+			return;
+		}
+		_lastValidationMessage = message;
+		addLogConsole(message, true);
+	}
+	
+	private void clearValidationMessage()
+	{
+		if (_lastValidationMessage != null)
+		{
+			_lastValidationMessage = null;
+			addLogConsole("Validation passed.", true);
+		}
+	}
+	
+	private void applyValidationResult(DescriptorWriter.ValidationResult result, String text)
+	{
+		if ((result == null) || result.isValid())
+		{
+			setValidationState(true, Collections.emptyList());
+			return;
+		}
+		
+		setValidationState(false, buildErrorRanges(result, text));
+	}
+	
+	private void setValidationState(boolean isValid, List<IndexRange> ranges)
+	{
+		_isValidationValid = isValid;
+		_textPaneMain.setErrorRanges(ranges);
+		checkButtons();
+	}
+	
+	private List<IndexRange> buildErrorRanges(DescriptorWriter.ValidationResult result, String text)
+	{
+		if ((result == null) || (text == null))
+		{
+			return Collections.emptyList();
+		}
+		
+		final int offset = result.getOffset();
+		if (offset < 1)
+		{
+			return Collections.emptyList();
+		}
+		
+		final int startIndex = Math.min(offset - 1, text.length());
+		int endIndex = text.length();
+		for (int i = startIndex; i < text.length(); i++)
+		{
+			final char ch = text.charAt(i);
+			if ((ch == '\r') || (ch == '\n'))
+			{
+				endIndex = i;
+				break;
+			}
+		}
+		if (endIndex <= startIndex)
+		{
+			return Collections.emptyList();
+		}
+		return Collections.singletonList(new IndexRange(startIndex, endIndex));
+	}
+	
+	private String formatValidationMessage(DescriptorWriter.ValidationResult result)
+	{
+		if (result == null)
+		{
+			return null;
+		}
+		
+		final StringBuilder builder = new StringBuilder("Validation error");
+		if (result.getLine() > 0)
+		{
+			builder.append(" at line ").append(result.getLine());
+		}
+		if (result.getOffset() > 0)
+		{
+			builder.append(" (offset ").append(result.getOffset()).append(")");
+		}
+		if (result.getMessage() != null)
+		{
+			builder.append(": ").append(result.getMessage());
+		}
+		return builder.toString();
+	}
 	
 	private void bindController(L2ClientDatController controller)
 	{
@@ -556,12 +738,17 @@ public class L2ClientDat extends Application
 		_saveDatButton.setDisable(true);
 		_abortTaskButton.setDisable(true);
 		_progressBar.setProgress(0.0);
+		_validationDebounce = new PauseTransition(Duration.millis(300.0));
 		
 		final Font font = Font.font(new Label().getFont().getName(), FontWeight.BOLD, 13.0);
 		_textPaneMain.setStyle(String.format("-fx-background-color: #293134; -fx-text-fill: white; -fx-font-family: '%s'; -fx-font-size: %.1fpx; -fx-font-weight: bold;",
 				font.getFamily(),
 				font.getSize()));
-		_textPaneMain.textProperty().addListener((observable, oldValue, newValue) -> _lineNumberingTextArea.updateText(newValue));
+		_textPaneMain.textProperty().addListener((observable, oldValue, newValue) ->
+		{
+			_lineNumberingTextArea.updateText(newValue);
+			scheduleValidation(newValue);
+		});
 		_lineNumberingTextArea.updateText(_textPaneMain.getText());
 		
 		_lineNumberingTextArea.setFont(Font.font(font.getName(), FontWeight.NORMAL, 12.0));
@@ -572,5 +759,23 @@ public class L2ClientDat extends Application
 		
 		_textPaneLog.setStyle("-fx-control-inner-background: #293134; -fx-text-fill: cyan;");
 		_textPaneLog.setEditable(false);
+	}
+	
+	private static final class ValidationActionTask extends ActionTask
+	{
+		ValidationActionTask(L2ClientDat l2clientdat)
+		{
+			super(l2clientdat);
+		}
+		
+		@Override
+		protected void action()
+		{
+		}
+		
+		@Override
+		public void changeProgress(double value)
+		{
+		}
 	}
 }

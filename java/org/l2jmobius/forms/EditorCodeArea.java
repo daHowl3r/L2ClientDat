@@ -16,10 +16,16 @@
  */
 package org.l2jmobius.forms;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javafx.scene.control.IndexRange;
 import org.fxmisc.richtext.CodeArea;
+import org.fxmisc.richtext.model.StyleSpan;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
@@ -29,6 +35,7 @@ import org.fxmisc.richtext.model.StyleSpansBuilder;
 public class EditorCodeArea extends CodeArea
 {
 	private static final Pattern TOKEN_PATTERN = Pattern.compile("([^=\\s]+)=(\\[[^\\]]*\\]|\\{[^}]*\\}|[^\\s]+)?");
+	private List<IndexRange> _errorRanges = Collections.emptyList();
 
 	/**
 	 * Creates a code area that applies syntax highlighting for key/value tokens.
@@ -55,10 +62,20 @@ public class EditorCodeArea extends CodeArea
 		getUndoManager().forgetHistory();
 	}
 
-	private StyleSpans<java.util.Collection<String>> buildHighlighting(String text)
+	/**
+	 * Updates the current error ranges used for styling.
+	 * @param ranges the error ranges to apply, or empty to clear
+	 */
+	public void setErrorRanges(List<IndexRange> ranges)
+	{
+		_errorRanges = (ranges == null) ? Collections.emptyList() : new ArrayList<>(ranges);
+		setStyleSpans(0, buildHighlighting(getText()));
+	}
+
+	private StyleSpans<Collection<String>> buildHighlighting(String text)
 	{
 		final String value = text == null ? "" : text;
-		final StyleSpansBuilder<java.util.Collection<String>> spansBuilder = new StyleSpansBuilder<>();
+		final StyleSpansBuilder<Collection<String>> spansBuilder = new StyleSpansBuilder<>();
 		final Matcher matcher = TOKEN_PATTERN.matcher(value);
 		int lastEnd = 0;
 		while (matcher.find())
@@ -92,6 +109,90 @@ public class EditorCodeArea extends CodeArea
 		{
 			spansBuilder.add(Collections.singleton("rich-text-normal"), value.length() - lastEnd);
 		}
-		return spansBuilder.create();
+		return applyErrorRanges(spansBuilder.create(), _errorRanges, value.length());
+	}
+
+	private StyleSpans<Collection<String>> applyErrorRanges(StyleSpans<Collection<String>> spans, List<IndexRange> ranges, int textLength)
+	{
+		final List<IndexRange> normalizedRanges = normalizeErrorRanges(ranges, textLength);
+		if (normalizedRanges.isEmpty())
+		{
+			return spans;
+		}
+		
+		final StyleSpansBuilder<Collection<String>> builder = new StyleSpansBuilder<>();
+		int position = 0;
+		int rangeIndex = 0;
+		IndexRange currentRange = normalizedRanges.get(rangeIndex);
+		for (StyleSpan<Collection<String>> span : spans)
+		{
+			final int spanLength = span.getLength();
+			int spanStart = position;
+			final int spanEnd = position + spanLength;
+			while (spanStart < spanEnd)
+			{
+				if (currentRange == null || spanEnd <= currentRange.getStart())
+				{
+					builder.add(span.getStyle(), spanEnd - spanStart);
+					spanStart = spanEnd;
+					continue;
+				}
+				
+				if (spanStart >= currentRange.getEnd())
+				{
+					currentRange = (++rangeIndex < normalizedRanges.size()) ? normalizedRanges.get(rangeIndex) : null;
+					continue;
+				}
+				
+				final int nonErrorEnd = Math.min(spanEnd, currentRange.getStart());
+				if (spanStart < nonErrorEnd)
+				{
+					builder.add(span.getStyle(), nonErrorEnd - spanStart);
+					spanStart = nonErrorEnd;
+					continue;
+				}
+				
+				final int errorEnd = Math.min(spanEnd, currentRange.getEnd());
+				builder.add(addErrorStyle(span.getStyle()), errorEnd - spanStart);
+				spanStart = errorEnd;
+				if (currentRange != null && spanStart >= currentRange.getEnd())
+				{
+					currentRange = (++rangeIndex < normalizedRanges.size()) ? normalizedRanges.get(rangeIndex) : null;
+				}
+			}
+			position += spanLength;
+		}
+		return builder.create();
+	}
+
+	private List<IndexRange> normalizeErrorRanges(List<IndexRange> ranges, int textLength)
+	{
+		if (ranges == null || ranges.isEmpty() || textLength <= 0)
+		{
+			return Collections.emptyList();
+		}
+		
+		final List<IndexRange> normalized = new ArrayList<>();
+		for (IndexRange range : ranges)
+		{
+			final int start = Math.max(0, Math.min(textLength, range.getStart()));
+			final int end = Math.max(0, Math.min(textLength, range.getEnd()));
+			if (end > start)
+			{
+				normalized.add(new IndexRange(start, end));
+			}
+		}
+		normalized.sort(Comparator.comparingInt(IndexRange::getStart));
+		return normalized;
+	}
+
+	private Collection<String> addErrorStyle(Collection<String> styles)
+	{
+		final ArrayList<String> combined = new ArrayList<>(styles);
+		if (!combined.contains("rich-text-error"))
+		{
+			combined.add("rich-text-error");
+		}
+		return combined;
 	}
 }
